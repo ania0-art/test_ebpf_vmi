@@ -1,0 +1,27 @@
+#!/usr/bin/env bpftrace
+
+/*
+ * 监控: tracepoint:workqueue:workqueue_queue_work
+ * 字段: args->function (已确认为 void *)
+ * 原理: 当内核要把 bpf_map_free_deferred 扔进工作队列时，触发此脚本。
+ */
+
+tracepoint:workqueue:workqueue_queue_work
+{
+    // 1. 获取正在被调度的任务函数指针
+    $target_func = args->function;
+
+    // 2. 核心判断：这个任务是不是 BPF Map 的延迟释放函数？
+    // bpf_map_free_deferred 必须存在地址，因为它是通过函数指针传递给 INIT_WORK 的
+    if ($target_func == kaddr("bpf_map_free_deferred")) {
+        
+        printf("\n🔥 捕获到 Map 销毁提交 (Triggered) 🔥\n");
+        printf("    Comm: %s | PID: %d\n", comm, pid);
+        
+        // 双重确认：打印一下函数名，确保没抓错
+        printf("    Task Function: %s\n", ksym($target_func));
+        
+        printf("\n👇👇👇 完整的内核调用栈 (User -> Kernel) 👇👇👇\n");
+        print(kstack);
+    }
+}
