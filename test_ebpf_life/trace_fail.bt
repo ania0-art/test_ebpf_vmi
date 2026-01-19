@@ -1,0 +1,15 @@
+kretprobe:bpf_check { printf("1. Verifier passed? Ret: %d\n", retval); }
+kretprobe:bpf_prog_select_runtime { printf("2. JIT compile? Ret: %d\n", retval); }
+kprobe:bpf_prog_new_fd { printf("4. Reached Target: bpf_prog_new_fd!\n"); }
+kprobe:anon_inode_getfd
+{
+    // arg0 是文件名称字符串，对于 BPF 程序，它固定是 "bpf-prog"
+    $name = str(arg0);
+    
+    // 只过滤 bpf 相关的调用，防止其他系统杂音
+    if ($name == "bpf-prog") {
+        printf("\n[SUCCESS] Captured BPF FD creation!\n");
+        printf("Comm: %s (PID: %d)\n", comm, pid);
+        printf("Kernel Stack Trace:\n%s\n", kstack);
+    }
+}

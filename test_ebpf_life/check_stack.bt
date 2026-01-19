@@ -1,0 +1,16 @@
+#!/usr/bin/env bpftrace
+
+/* * 监控 bpf_link_put
+ * 当引用计数为 1 时（即将销毁），打印调用栈
+ */
+kprobe:bpf_link_put
+{
+    // 获取第一个成员变量 refcnt (atomic64_t) 的值
+    // 直接读内存，不需要头文件，最稳
+    $ref = *(int64 *)arg0;
+
+    if ($ref == 1) {
+        printf("\n[+] Link Destroy (Unpin) Triggered. Stack:\n");
+        print(kstack);
+    }
+}
